@@ -1,0 +1,10 @@
+# Vim temp files
+*~
+
+**/__pycache__/
+.env
+
+
+# Added by cargo
+
+/target
