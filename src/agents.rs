@@ -70,7 +70,7 @@ pub fn run_script_generation_agent(
     
     // Check if both Dockerfile and Docker Compose file are present
     let has_dockerfile = docker_content.contains_key("Dockerfile");
-    let has_compose_file = docker_content.keys().any(|k| k == "docker-compose.yml" || k == "compose.yml" || k == "program.yml");
+    let has_compose_file = docker_content.keys().any(|k| k.ends_with("yml") || k.ends_with("yaml"));
     
     // Create the prompt based on available files
     let prompt = if has_dockerfile && has_compose_file {
