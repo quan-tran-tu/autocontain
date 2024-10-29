@@ -4,6 +4,7 @@
 **/__pycache__/
 .env
 source/
+scripts/
 
 # Added by cargo
 
