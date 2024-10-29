@@ -124,7 +124,8 @@ pub fn cleanup_repos() {
 
 // Analyzes all Markdown (.md) files in a directory and queries OpenAI for summary
 pub fn analyze_markdown(dir: &Path, openai_api_key: &str) -> Result<String, Box<dyn Error>> {
-    let merged_content = find_and_merge_markdown(dir)?;
+    let (merged_content, md_file_count) = find_and_merge_markdown(dir)?;
+    println!("Found {} Markdown (.md) files.", md_file_count); // Log the count of .md files
 
     let analysis = query_openai(&merged_content, openai_api_key)?;
     Ok(analysis)
@@ -150,7 +151,6 @@ fn find_and_merge_markdown(dir: &Path) -> Result<(String, usize), io::Error> {
             merged_content.push_str("\n\n");
         }
     }
-    println!("Found {} Markdown (.md) files.", md_file_count);
     Ok((merged_content, md_file_count))
 }
 
