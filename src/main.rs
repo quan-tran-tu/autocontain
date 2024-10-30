@@ -1,9 +1,7 @@
 use std::env;
 use dotenv::dotenv;
 use std::process;
-use autocontain::{process_repository};
-use autocontain::utils::user_exit;
-use autocontain::repo::cleanup_repos;
+use autocontain::{process_repository, run_menu};
 
 fn main() {
     // Load environment variables from .env file
@@ -34,9 +32,5 @@ fn main() {
         eprintln!("Error processing repository: {}", e);
     }
     
-    user_exit();
-
-    if !persist {
-        cleanup_repos();
-    }
+    run_menu(persist);
 }

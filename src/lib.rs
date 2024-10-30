@@ -5,10 +5,12 @@ pub mod utils;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
+use std::fs;
+use std::io::{self, Write};
 
 use agents::{documentation_analysis_agent, docker_file_generation_agent, run_script_generation_agent};
-use repo::{check_github_repo, clone_repo, find_and_merge_content, copy_docker_files, apply_tag};
-use std::fs;
+use repo::{check_github_repo, clone_repo, cleanup_repos, find_and_merge_content, copy_docker_files, apply_tag, view_basic_analysis, view_tree_structure, install_repo, chat_with_assistant};
+
 
 fn agents_caller(md_content: String, docker_content: HashMap<String, String>, openai_api_key: &str, scripts_path: PathBuf) -> Result<(), Box<dyn Error>> {
     // Step 5: Prepare combined content for OpenAI analysis
@@ -62,4 +64,46 @@ pub fn process_repository(link: &str, openai_api_key: &str, persist: bool) -> Re
     }
 
     Ok(())
+}
+
+pub fn run_menu(persist: bool) {
+    loop {
+        // Display the menu
+        println!("Choose an option:");
+        println!("0. Exit the program.");
+        println!("1. View repo's basic analysis.");
+        println!("2. View repo's tree structure.");
+        println!("3. Install the repo.");
+        println!("4. Chat with assistant.");
+
+        // Get user input
+        print!("Enter your choice: ");
+        io::stdout().flush().unwrap();
+
+        let mut input = String::new();
+        if io::stdin().read_line(&mut input).is_err() {
+            println!("Failed to read line");
+            continue;
+        }
+
+        let input = input.trim();
+
+        // Match the input to execute corresponding actions
+        match input {
+            "0" => {
+                println!("Exiting program...");
+                if !persist {
+                    cleanup_repos();
+                }
+                break;
+            },
+            "1" => view_basic_analysis(),
+            "2" => view_tree_structure(),
+            "3" => install_repo(),
+            "4" => chat_with_assistant(),
+            _ => println!("Invalid choice, please try again."),
+        }
+
+        println!(); // Print a newline for better readability
+    }
 }
