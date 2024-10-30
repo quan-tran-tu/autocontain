@@ -1,5 +1,6 @@
 # Vim temp files
 *~
+*.swp
 
 **/__pycache__/
 .env
