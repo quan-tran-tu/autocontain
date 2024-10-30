@@ -19,6 +19,7 @@ fn agents_caller(md_content: String, docker_content: HashMap<String, String>, op
     // Step 6: Analyze documentation with OpenAI for general insights
     let analysis = documentation_analysis_agent(&combined_content, openai_api_key)?;
     // TODO: Create a md file and write analysis into it
+    fs::write(scripts_path.join("analysis.md"), analysis.clone())?;
     if docker_content.is_empty() {
         // Step 8a: If no Docker files found, generate a Dockerfile with `docker_file_generation_agent`
         println!("No Docker-related files found. Generating Dockerfile.");

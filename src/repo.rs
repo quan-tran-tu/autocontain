@@ -2,7 +2,7 @@ use reqwest::StatusCode;
 use git2::Repository;
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, OpenOptions};
-use std::io::{self, BufRead, Write};
+use std::io::{self, BufRead, Write, Read};
 use std::path::{Path, PathBuf};
 
 // Function to check if the GitHub repository exists by sending an HTTP request
@@ -144,6 +144,7 @@ pub fn cleanup_repos() {
     }
 }
 
+// TODO: add --depth {int} to search for .md files
 // Scans the repository directory to find Markdown and Docker-related files, and returns their content.
 // - Markdown content is concatenated and returned as a single string.
 // - Docker-related files are stored in a HashMap with their filename as the key.
@@ -191,8 +192,28 @@ pub fn find_and_merge_content(dir: &Path) -> Result<(String, usize, HashMap<Stri
 
 // Placeholder functions for each option
 pub fn view_basic_analysis(scripts_path: &Path) {
+    let analysis_path = scripts_path.join("analysis.md");
     println!("Viewing repository's basic analysis...");
-    // Add logic to analyze the repo
+    // Check if the file exists
+    if !analysis_path.exists() {
+        println!("No analysis.md file found at {}", scripts_path.display());
+        return;
+    }
+
+    // Open and read the file content
+    match fs::File::open(&analysis_path) {
+        Ok(mut file) => {
+            let mut content = String::new();
+            if file.read_to_string(&mut content).is_ok() {
+                println!("Content of analysis.md:\n{}", content);
+            } else {
+                println!("Failed to read the content of analysis.md");
+            }
+        },
+        Err(err) => {
+            println!("Failed to open analysis.md: {}", err);
+        }
+    }
 }
 
 pub fn view_tree_structure(local_path: &Path) {
@@ -228,10 +249,12 @@ fn display_tree_structure(path: &Path, level: usize, prefix: &str) {
 
 pub fn install_repo() {
     println!("Installing repository...");
-    // Add logic to install the repo
+    // TODO: Execute script to install container
+    // TODO: Log out the output from the container
 }
 
 pub fn chat_with_assistant() {
     println!("Starting chat with assistant...");
-    // Add logic to initiate chat with assistant
+    // TODO: Add database to store informations about the code
+    // TODO: Build RAG system
 }

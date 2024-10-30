@@ -3,6 +3,7 @@ use serde_json::json;
 use std::error::Error;
 use std::collections::HashMap;
 
+// TODO: Add check for error from OpenAI response
 // Agent 1: Documentation Analysis Agent
 pub fn documentation_analysis_agent(content: &str, openai_api_key: &str) -> Result<String, Box<dyn Error>> {
     let client = Client::new();
@@ -31,6 +32,7 @@ pub fn documentation_analysis_agent(content: &str, openai_api_key: &str) -> Resu
         }))
         .send()?
         .json::<serde_json::Value>()?;
+    println!("Response: {}", response);
 
     Ok(response["choices"][0]["message"]["content"].as_str().unwrap_or("").to_string())
 }
