@@ -2,6 +2,7 @@
 *~
 *.swp
 
+# Project related
 **/__pycache__/
 .env
 source/

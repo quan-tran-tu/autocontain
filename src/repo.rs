@@ -4,7 +4,6 @@ use std::collections::{HashMap, HashSet};
 use std::fs::{self, OpenOptions};
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
-use std::error::Error;
 
 // Function to check if the GitHub repository exists by sending an HTTP request
 pub fn check_github_repo(link: &str) -> Result<bool, reqwest::Error> {
@@ -13,14 +12,14 @@ pub fn check_github_repo(link: &str) -> Result<bool, reqwest::Error> {
 }
 
 // Clones the GitHub repository to the 'source' directory and manages tagging based on the persist flag
-pub fn clone_repo(link: &str, persist: bool) -> Result<(), git2::Error> {
+pub fn clone_repo(link: &str, persist: bool) -> Result<(String, PathBuf), git2::Error> {
     let base_path = Path::new("source");
     if !base_path.exists() {
         fs::create_dir(base_path).expect("Failed to create 'source' folder");
     }
 
-    let repo_name = link.trim_end_matches('/').split('/').last().unwrap();
-    let local_path = base_path.join(repo_name);
+    let repo_name = link.trim_end_matches('/').split('/').last().unwrap().to_string();
+    let local_path = base_path.join(&repo_name);
 
     // Load tags once and pass it to add_tag/remove_tag functions
     let mut tags = load_tags();
@@ -39,19 +38,19 @@ pub fn clone_repo(link: &str, persist: bool) -> Result<(), git2::Error> {
     // Update tags based on the persist flag
     if persist {
         println!("Persist flag is set, adding tag for '{}'", repo_name);
-        add_tag(repo_name, &mut tags);
+        add_tag(&repo_name, &mut tags);
     } else {
         println!("Persist flag is not set, removing tag for '{}'", repo_name);
-        remove_tag(repo_name, &mut tags);
+        remove_tag(&repo_name, &mut tags);
     }
 
     // Save tags to the file after modifications
     save_tags(&tags);
     println!("Updated tags: {:?}", tags);
 
-    Ok(())
+    // Return `repo_name` and `local_path` along with `Ok`
+    Ok((repo_name, local_path))
 }
-
 // Adds a repository name to the tags HashSet
 fn add_tag(repo_name: &str, tags: &mut HashSet<String>) {
     tags.insert(repo_name.to_string());
@@ -60,15 +59,6 @@ fn add_tag(repo_name: &str, tags: &mut HashSet<String>) {
 // Removes a repository name from the tags HashSet
 fn remove_tag(repo_name: &str, tags: &mut HashSet<String>) {
     tags.remove(repo_name);
-}
-
-// Creates a unique 'scripts/{repo_name}' folder for each repository
-pub fn create_scripts_folder(repo_name: &str) -> Result<PathBuf, Box<dyn Error>> {
-    let scripts_path = Path::new("scripts").join(repo_name);
-    if !scripts_path.exists() {
-        fs::create_dir_all(&scripts_path)?;
-    }
-    Ok(scripts_path)
 }
 
 // Applies a tag to the specified repository

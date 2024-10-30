@@ -1,7 +1,12 @@
+# autocontain
 A simple project to automate trying out github repos.
 
-Requirements:
+## Requirements:
 - Has Docker installed
-Dev logs:
-- Command line design: autocontain 'example.link' -> start a session in the command line.
-
+## Usage:
+### Example: 
+```bash
+cargo run -- https://github.com/drawdb-io/drawdb [--persist]
+```
+### Params:
+- persist: save the repo and the content generated.
