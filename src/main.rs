@@ -27,10 +27,8 @@ fn main() {
         process::exit(1);
     }
 
-    // Process the repository using the modularized function
-    if let Err(e) = process_repository(link, &openai_api_key, persist) {
-        eprintln!("Error processing repository: {}", e);
-    }
-    
-    run_menu(persist);
+    let (repo_name, local_path, scripts_path) = process_repository(link, &openai_api_key, persist)
+        .expect("Failed to process repository.");
+
+    run_menu(persist, &local_path, &scripts_path);
 }

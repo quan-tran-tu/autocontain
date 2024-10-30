@@ -36,11 +36,11 @@ fn agents_caller(md_content: String, docker_content: HashMap<String, String>, op
 }
 
 
-pub fn process_repository(link: &str, openai_api_key: &str, persist: bool) -> Result<(), Box<dyn Error>> {
+pub fn process_repository(link: &str, openai_api_key: &str, persist: bool) -> Result<(String, PathBuf, PathBuf), Box<dyn Error>> {
     // Step 1: Check if the GitHub repository exists
     if !check_github_repo(link)? {
         eprintln!("Repository link is invalid or inaccessible.");
-        return Ok(());
+        return Err("Repository link is invalid or inaccessible.".into());
     }
 
     // Step 2: Clone the repository (or skip if already cloned)
@@ -63,10 +63,10 @@ pub fn process_repository(link: &str, openai_api_key: &str, persist: bool) -> Re
         apply_tag(&repo_name);
     }
 
-    Ok(())
+    Ok((repo_name, local_path, scripts_path))
 }
 
-pub fn run_menu(persist: bool) {
+pub fn run_menu(persist: bool, local_path: &Path, scripts_path: &Path) {
     loop {
         // Display the menu
         println!("Choose an option:");
@@ -97,8 +97,8 @@ pub fn run_menu(persist: bool) {
                 }
                 break;
             },
-            "1" => view_basic_analysis(),
-            "2" => view_tree_structure(),
+            "1" => view_basic_analysis(scripts_path),
+            "2" => view_tree_structure(local_path),
             "3" => install_repo(),
             "4" => chat_with_assistant(),
             _ => println!("Invalid choice, please try again."),

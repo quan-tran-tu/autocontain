@@ -189,23 +189,46 @@ pub fn find_and_merge_content(dir: &Path) -> Result<(String, usize, HashMap<Stri
 }
 
 
-use std::thread;
-use std::time::Duration;
 // Placeholder functions for each option
-pub fn view_basic_analysis() {
+pub fn view_basic_analysis(scripts_path: &Path) {
     println!("Viewing repository's basic analysis...");
     // Add logic to analyze the repo
 }
 
-pub fn view_tree_structure() {
+pub fn view_tree_structure(local_path: &Path) {
     println!("Displaying repository's tree structure...");
     // Add logic to show the repo's tree structure
+    display_tree_structure(local_path, 0, "");
+}
+fn display_tree_structure(path: &Path, level: usize, prefix: &str) {
+    if let Ok(entries) = fs::read_dir(path) {
+        let entries: Vec<_> = entries.filter_map(Result::ok).collect();
+        let count = entries.len();
+
+        for (i, entry) in entries.into_iter().enumerate() {
+            let entry_path = entry.path();
+            let file_name = entry.file_name().into_string().unwrap_or_default();
+            let is_last = i == count - 1;
+
+            // Printing the current line with branch symbols
+            println!("{}{}─ {}", prefix, if is_last { "└" } else { "├" }, file_name);
+
+            // Prepare the new prefix for the next level
+            let new_prefix = format!("{}{}", prefix, if is_last { "  " } else { "│ " });
+
+            // Recursively display tree structure for directories
+            if entry_path.is_dir() {
+                display_tree_structure(&entry_path, level + 1, &new_prefix);
+            }
+        }
+    } else {
+        println!("Failed to read the directory: {:?}", path);
+    }
 }
 
 pub fn install_repo() {
-    println!("Installing repository... (This will take 10 seconds)");
-    thread::sleep(Duration::from_secs(10)); // Simulate a 10-second delay
-    println!("Installation complete.");
+    println!("Installing repository...");
+    // Add logic to install the repo
 }
 
 pub fn chat_with_assistant() {
