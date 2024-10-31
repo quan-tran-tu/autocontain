@@ -12,28 +12,38 @@ use agents::{documentation_analysis_agent, docker_file_generation_agent, run_scr
 use repo::{check_github_repo, clone_repo, cleanup_repos, find_and_merge_content, copy_docker_files, apply_tag, view_basic_analysis, view_tree_structure, install_repo, chat_with_assistant};
 
 
-fn agents_caller(md_content: String, docker_content: HashMap<String, String>, openai_api_key: &str, scripts_path: PathBuf) -> Result<(), Box<dyn Error>> {
-    // Step 5: Prepare combined content for OpenAI analysis
+fn agents_caller(
+    md_content: String,
+    docker_content: HashMap<String, String>,
+    openai_api_key: &str,
+    scripts_path: PathBuf,
+) -> bool {
     let docker_combined = docker_content.values().cloned().collect::<Vec<String>>().join("\n\n");
     let combined_content = format!("Markdown content:\n{}\n\nDocker content:\n{}", md_content, docker_combined);
-    // Step 6: Analyze documentation with OpenAI for general insights
-    let analysis = documentation_analysis_agent(&combined_content, openai_api_key)?;
-    // TODO: Create a md file and write analysis into it
-    fs::write(scripts_path.join("analysis.md"), analysis.clone())?;
-    if docker_content.is_empty() {
-        // Step 8a: If no Docker files found, generate a Dockerfile with `docker_file_generation_agent`
-        println!("No Docker-related files found. Generating Dockerfile.");
-        let generated_dockerfile = docker_file_generation_agent(&analysis, openai_api_key)?;
-        fs::write(scripts_path.join("Dockerfile"), &generated_dockerfile)?;
-    } else {
-        // Step 8b: Use `copy_docker_files` to copy all found Docker-related files to the unique scripts folder
-        copy_docker_files(&docker_content, &scripts_path)?;
-    }
-    // Step 9: Generate a run script that considers all Docker-related files
-    let run_script = run_script_generation_agent(&docker_content, openai_api_key)?;
-    fs::write(scripts_path.join("run_docker.sh"), run_script)?;
 
-    Ok(())
+    let result = documentation_analysis_agent(&combined_content, openai_api_key).and_then(|analysis| {
+        fs::write(scripts_path.join("analysis.md"), analysis.clone())?;
+        
+        if docker_content.is_empty() {
+            println!("No Docker-related files found. Generating Dockerfile.");
+            let generated_dockerfile = docker_file_generation_agent(&analysis, openai_api_key)?;
+            fs::write(scripts_path.join("Dockerfile"), &generated_dockerfile)?;
+        } else {
+            copy_docker_files(&docker_content, &scripts_path)?;
+        }
+
+        let run_script = run_script_generation_agent(&docker_content, openai_api_key)?;
+        fs::write(scripts_path.join("run_docker.sh"), run_script)?;
+
+        Ok::<(), Box<dyn Error>>(())
+    });
+
+    if let Err(e) = result {
+        eprintln!("Error in agents_caller: {}", e);
+        return false;
+    }
+    
+    true
 }
 
 
@@ -52,12 +62,14 @@ pub fn process_repository(link: &str, openai_api_key: &str, persist: bool) -> Re
         // Step 4: Analyze documentation and Docker-related files
         let (md_content, md_file_count, docker_content) = find_and_merge_content(&local_path)?;
         println!("Found {} Markdown (.md) files.", md_file_count);
-        agents_caller(md_content, docker_content, &openai_api_key, scripts_path.clone())?;
+        if agents_caller(md_content, docker_content, &openai_api_key, scripts_path.clone()) {
+            println!("Repository processed successfully, files saved in '{}'.", scripts_path.display());
+        } else {
+            println!("Repository processed, failed to call OpenAI.");
+        }
     } else {
-        println!("Scripts already exists. Not calling agents.");
+        println!("Scripts already exists. Not calling agents.")
     }
-
-    println!("Repository processed successfully, files saved in '{}'.", scripts_path.display());
 
     // Step 10: Apply tag if --persist is specified
     if persist {

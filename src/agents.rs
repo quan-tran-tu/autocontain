@@ -1,6 +1,7 @@
 use reqwest::blocking::Client;
 use serde_json::json;
 use std::error::Error;
+use std::io;
 use std::collections::HashMap;
 
 // TODO: Add check for error from OpenAI response
@@ -32,7 +33,15 @@ pub fn documentation_analysis_agent(content: &str, openai_api_key: &str) -> Resu
         }))
         .send()?
         .json::<serde_json::Value>()?;
-    println!("Response: {}", response);
+
+    // Check if the response contains an error
+    if let Some(error) = response.get("error") {
+        println!("OpenAI API Error: {}", error["message"].as_str().unwrap_or("Unknown error"));
+        return Err(Box::new(io::Error::new(
+            io::ErrorKind::Other,
+            "OpenAI API returned an error",
+        )));
+    }
 
     Ok(response["choices"][0]["message"]["content"].as_str().unwrap_or("").to_string())
 }

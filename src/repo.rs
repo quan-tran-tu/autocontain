@@ -225,6 +225,20 @@ fn display_tree_structure(path: &Path, level: usize, prefix: &str) {
     if let Ok(entries) = fs::read_dir(path) {
         let entries: Vec<_> = entries.filter_map(Result::ok).collect();
         let count = entries.len();
+        
+        // Group entries by file extension if they are files
+        let mut extension_groups: HashMap<String, Vec<PathBuf>> = HashMap::new();
+
+        for entry in &entries {
+            let entry_path = entry.path();
+            if entry_path.is_file() {
+                let ext = entry_path.extension()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("")
+                    .to_string();
+                extension_groups.entry(ext).or_default().push(entry_path.clone());
+            }
+        }
 
         for (i, entry) in entries.into_iter().enumerate() {
             let entry_path = entry.path();
@@ -240,6 +254,23 @@ fn display_tree_structure(path: &Path, level: usize, prefix: &str) {
             // Recursively display tree structure for directories
             if entry_path.is_dir() {
                 display_tree_structure(&entry_path, level + 1, &new_prefix);
+            } else {
+                let ext = entry_path.extension()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("")
+                    .to_string();
+
+                // Display the first 4 files and replace others with "..." if more than 4
+                if let Some(files) = extension_groups.get(&ext) {
+                    if files.len() > 4 {
+                        for (j, file) in files.iter().take(4).enumerate() {
+                            let file_name = file.file_name().unwrap().to_string_lossy();
+                            println!("{}{}─ {}", new_prefix, if j == 3 { "└" } else { "├" }, file_name);
+                        }
+                        println!("{}└─ ...", new_prefix); // Indicating remaining files
+                        break;
+                    }
+                }
             }
         }
     } else {
