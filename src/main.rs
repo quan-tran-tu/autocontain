@@ -17,9 +17,23 @@ fn main() {
         process::exit(1);
     }
 
-    // Extract GitHub link and optional persist flag
     let link = &args[1];
-    let persist = args.len() > 2 && args[2] == "--persist";
+
+    // Default values
+    let mut persist = false;
+    let mut depth = 0;
+
+    for arg in &args[2..] {
+        match arg.as_str() {
+            "--persist" => persist = true,
+            _ if arg.starts_with("--depth=") => {
+                if let Some(value) = arg.strip_prefix("--depth=") {
+                    depth = value.parse::<usize>().unwrap_or(0);
+                }
+            }
+            _ => println!("Warning: Unrecognized argument {}", arg),
+        }
+    }
 
     // Validate GitHub link format
     if !link.starts_with("https://github.com/") {
@@ -27,7 +41,7 @@ fn main() {
         process::exit(1);
     }
 
-    let (repo_name, local_path, scripts_path) = process_repository(link, &openai_api_key, persist)
+    let (repo_name, local_path, scripts_path) = process_repository(link, &openai_api_key, persist, depth)
         .expect("Failed to process repository.");
 
     run_menu(persist, &local_path, &scripts_path);

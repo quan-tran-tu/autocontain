@@ -144,11 +144,14 @@ pub fn cleanup_repos() {
     }
 }
 
-// TODO: add --depth {int} to search for .md files
 // Scans the repository directory to find Markdown and Docker-related files, and returns their content.
 // - Markdown content is concatenated and returned as a single string.
-// - Docker-related files are stored in a HashMap with their filename as the key.
-pub fn find_and_merge_content(dir: &Path) -> Result<(String, usize, HashMap<String, String>), io::Error> {
+// - Docker-related files are stored in a HashMap.
+// - Only 1 Dockerfile and compose file, each, is considered.
+pub fn find_and_merge_content(
+    dir: &Path,
+    depth: usize,
+) -> Result<(String, usize, HashMap<String, String>), io::Error> {
     let mut md_content = String::new();
     let mut md_file_count = 0;
     let mut docker_content = HashMap::new();
@@ -158,29 +161,29 @@ pub fn find_and_merge_content(dir: &Path) -> Result<(String, usize, HashMap<Stri
         let path = entry.path();
 
         if path.is_dir() {
-            let (nested_md_content, count, nested_docker_content) = find_and_merge_content(&path)?;
-            md_content.push_str(&nested_md_content);
-            md_file_count += count;
-            
-            // Merge nested Docker content into the main hashmap
-            for (file_name, content) in nested_docker_content {
-                docker_content.insert(file_name, content);
+            if depth > 0 {
+                // Recursively call with reduced depth if depth > 0
+                let (nested_md_content, count, _) = find_and_merge_content(&path, depth - 1)?;
+                md_content.push_str(&nested_md_content);
+                md_file_count += count;
             }
         } else {
             let file_name = path.file_name().and_then(|f| f.to_str()).unwrap_or_default().to_string();
 
             if file_name.ends_with(".md") {
-                // Recognize Markdown files
+                // Recognize Markdown files based on depth level
                 md_file_count += 1;
                 let content = fs::read_to_string(&path)?;
                 md_content.push_str(&content);
                 md_content.push_str("\n\n");
-            } else if file_name == "Dockerfile" || file_name.ends_with(".yml") || file_name.ends_with(".yaml") {
-                // Recognize Docker-related files by filename or inspection for Docker Compose
+            } else if depth == 0 && (file_name == "Dockerfile" || file_name.ends_with(".yml") || file_name.ends_with(".yaml")) {
+                // Collect Docker-related files only at the outermost layer (depth 0)
                 let content = fs::read_to_string(&path)?;
-
-                if file_name == "Dockerfile" || content.contains("services") {
-                    docker_content.insert(file_name, content);
+                if file_name == "Dockerfile" {
+                    docker_content.insert("Dockerfile".to_string(), content.clone());
+                }
+                if content.contains("services") {
+                    docker_content.insert("docker-compose.yml".to_string(), content);
                 }
             }
         }
@@ -190,7 +193,6 @@ pub fn find_and_merge_content(dir: &Path) -> Result<(String, usize, HashMap<Stri
 }
 
 
-// Placeholder functions for each option
 pub fn view_basic_analysis(scripts_path: &Path) {
     let analysis_path = scripts_path.join("analysis.md");
     println!("Viewing repository's basic analysis...");

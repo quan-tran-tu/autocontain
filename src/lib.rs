@@ -13,8 +13,9 @@ use repo::{check_github_repo, clone_repo, cleanup_repos, find_and_merge_content,
 
 
 fn agents_caller(
+    local_path: PathBuf,
     md_content: String,
-    docker_content: HashMap<String, String>,
+    docker_content: &mut HashMap<String, String>,
     openai_api_key: &str,
     scripts_path: PathBuf,
 ) -> bool {
@@ -28,11 +29,21 @@ fn agents_caller(
             println!("No Docker-related files found. Generating Dockerfile.");
             let generated_dockerfile = docker_file_generation_agent(&analysis, openai_api_key)?;
             fs::write(scripts_path.join("Dockerfile"), &generated_dockerfile)?;
+            docker_content.insert("Dockerfile".to_string(), generated_dockerfile);
         } else {
             copy_docker_files(&docker_content, &scripts_path)?;
         }
 
-        let run_script = run_script_generation_agent(&docker_content, openai_api_key)?;
+        let dockerfile_path = scripts_path.join("Dockerfile");
+        let dockerfile_path_str = dockerfile_path.to_str().unwrap();
+        let docker_compose_path = if docker_content.contains_key("docker-compose.yml") {
+            Some(scripts_path.join("docker-compose.yml"))
+        } else {
+            None
+        };
+        let docker_compose_path_str = docker_compose_path.as_deref().and_then(|p| p.to_str());
+
+        let run_script = run_script_generation_agent(&docker_content, openai_api_key, dockerfile_path_str, local_path, docker_compose_path_str)?;
         fs::write(scripts_path.join("run_docker.sh"), run_script)?;
 
         Ok::<(), Box<dyn Error>>(())
@@ -47,7 +58,7 @@ fn agents_caller(
 }
 
 
-pub fn process_repository(link: &str, openai_api_key: &str, persist: bool) -> Result<(String, PathBuf, PathBuf), Box<dyn Error>> {
+pub fn process_repository(link: &str, openai_api_key: &str, persist: bool, depth: usize) -> Result<(String, PathBuf, PathBuf), Box<dyn Error>> {
     // Step 1: Check if the GitHub repository exists
     if !check_github_repo(link)? {
         eprintln!("Repository link is invalid or inaccessible.");
@@ -60,9 +71,9 @@ pub fn process_repository(link: &str, openai_api_key: &str, persist: bool) -> Re
     if !scripts_path.exists() {
         fs::create_dir_all(&scripts_path)?;
         // Step 4: Analyze documentation and Docker-related files
-        let (md_content, md_file_count, docker_content) = find_and_merge_content(&local_path)?;
+        let (md_content, md_file_count, mut docker_content) = find_and_merge_content(&local_path, depth)?;
         println!("Found {} Markdown (.md) files.", md_file_count);
-        if agents_caller(md_content, docker_content, &openai_api_key, scripts_path.clone()) {
+        if agents_caller(local_path.clone(), md_content, &mut docker_content, &openai_api_key, scripts_path.clone()) {
             println!("Repository processed successfully, files saved in '{}'.", scripts_path.display());
         } else {
             println!("Repository processed, failed to call OpenAI.");

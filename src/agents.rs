@@ -3,8 +3,8 @@ use serde_json::json;
 use std::error::Error;
 use std::io;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
-// TODO: Add check for error from OpenAI response
 // Agent 1: Documentation Analysis Agent
 pub fn documentation_analysis_agent(content: &str, openai_api_key: &str) -> Result<String, Box<dyn Error>> {
     let client = Client::new();
@@ -51,7 +51,8 @@ pub fn docker_file_generation_agent(analysis: &str, openai_api_key: &str) -> Res
     let client = Client::new();
     let prompt = format!(
         "Based on the following analysis of repository requirements, prerequisites, and installation steps, \
-        generate a Dockerfile or docker-compose.yml script to install and run the repository.\n\n---\n\n{}",
+        generate only the Dockerfile content. Provide the content as raw text, without any explanations, \
+        introductory text, or formatting markers (such as ```Dockerfile or any other symbols).\n\n---\n\n{}",
         analysis
     );
 
@@ -72,33 +73,49 @@ pub fn docker_file_generation_agent(analysis: &str, openai_api_key: &str) -> Res
     Ok(response["choices"][0]["message"]["content"].as_str().unwrap_or("").to_string())
 }
 
+// TODO: something is wrong with this function
 // Agent 3: Run Script Generation Agent
 pub fn run_script_generation_agent(
     docker_content: &HashMap<String, String>, 
-    openai_api_key: &str
+    openai_api_key: &str,
+    dockerfile_path: &str,          // Path to the Dockerfile
+    repo_path: PathBuf,                // Path to the repository
+    docker_compose_path: Option<&str> // Optional path to the Docker Compose file
 ) -> Result<String, Box<dyn Error>> {
     let client = Client::new();
     
     // Check if both Dockerfile and Docker Compose file are present
     let has_dockerfile = docker_content.contains_key("Dockerfile");
-    let has_compose_file = docker_content.keys().any(|k| k.ends_with("yml") || k.ends_with("yaml"));
+    let has_compose_file = docker_compose_path.is_some();
     
+    let repo_path_str = repo_path.to_string_lossy().to_string();
+
     // Create the prompt based on available files
     let prompt = if has_dockerfile && has_compose_file {
         format!(
-            "Given the following Docker-related files, generate a shell script to set up and run the application using \
-            the most appropriate commands. Prioritize using docker-compose if it is available, as it will handle multi-container \
-            setups and service orchestration. If docker-compose.yml or equivalent is available, use 'docker-compose up'. Otherwise, \
-            if only a Dockerfile is present, use 'docker build' and 'docker run'.\n\n\
-            Dockerfile:\n{}\n\nCompose File:\n{}",
+            "Given the following Docker-related files in the repository, generate a shell script to set up and run the application. \
+            The Dockerfile is located at '{}', and the Docker Compose file is located at '{}'. Use 'docker-compose up' if available \
+            to manage multi-container setups and service orchestration. If only a Dockerfile is available, use 'docker build' with \
+            the Dockerfile path and 'docker run' with the built image. Provide the content as raw text, without any explanations, \
+            introductory text, or formatting markers (such as ```Dockerfile or any other symbols).\n\n\
+            Repository path: {}\nDockerfile path: {}\nDocker Compose path: {}\n\nDockerfile:\n{}\n\nCompose File:\n{}",
+            dockerfile_path,
+            docker_compose_path.unwrap_or(""),
+            &repo_path_str,
+            dockerfile_path,
+            docker_compose_path.unwrap_or(""),
             docker_content.get("Dockerfile").unwrap_or(&String::new()),
-            docker_content.get("docker-compose.yml").or(docker_content.get("compose.yml")).or(docker_content.get("program.yml")).unwrap_or(&String::new())
+            docker_content.get("docker-compose.yml").unwrap_or(&String::new())
         )
     } else if has_dockerfile {
         format!(
-            "Given only a Dockerfile, generate a shell script to build and run the Docker container using 'docker build' and 'docker run'. \
-            Ensure the script is practical for a typical application setup.\n\n\
-            Dockerfile:\n{}",
+            "Given only a Dockerfile located at '{}', generate a shell script to build and run the Docker container using \
+            'docker build' and 'docker run' with paths specified. Ensure the script is practical for a typical application \
+            setup. Provide the content as raw text, without any explanations, introductory text, or formatting markers \
+            (such as ```Dockerfile or any other symbols).\n\nRepository path: {}\nDockerfile path: {}\n\nDockerfile:\n{}",
+            dockerfile_path,
+            &repo_path_str,
+            dockerfile_path,
             docker_content.get("Dockerfile").unwrap()
         )
     } else {
