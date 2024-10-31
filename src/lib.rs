@@ -9,7 +9,7 @@ use std::fs;
 use std::io::{self, Write};
 
 use agents::{documentation_analysis_agent, docker_file_generation_agent, run_script_generation_agent};
-use repo::{check_github_repo, clone_repo, cleanup_repos, find_and_merge_content, copy_docker_files, apply_tag, view_basic_analysis, view_tree_structure, install_repo, chat_with_assistant};
+use repo::{check_github_repo, clone_repo, cleanup_repos, find_and_merge_content, apply_tag, view_basic_analysis, view_tree_structure, install_repo, chat_with_assistant};
 
 
 fn agents_caller(
@@ -28,19 +28,15 @@ fn agents_caller(
         if docker_content.is_empty() {
             println!("No Docker-related files found. Generating Dockerfile.");
             let generated_dockerfile = docker_file_generation_agent(&analysis, openai_api_key)?;
-            fs::write(scripts_path.join("Dockerfile"), &generated_dockerfile)?;
+            fs::write(local_path.join("Dockerfile"), &generated_dockerfile)?;
             docker_content.insert("Dockerfile".to_string(), generated_dockerfile);
-        } else {
-            copy_docker_files(&docker_content, &scripts_path)?;
         }
 
-        let dockerfile_path = scripts_path.join("Dockerfile");
+        let dockerfile_path = local_path.join("Dockerfile");
         let dockerfile_path_str = dockerfile_path.to_str().unwrap();
-        let docker_compose_path = if docker_content.contains_key("docker-compose.yml") {
-            Some(scripts_path.join("docker-compose.yml"))
-        } else {
-            None
-        };
+        let docker_compose_path = docker_content.keys()
+            .find(|key| key.ends_with(".yml") || key.ends_with(".yaml"))
+            .map(|key| local_path.join(key));
         let docker_compose_path_str = docker_compose_path.as_deref().and_then(|p| p.to_str());
 
         let run_script = run_script_generation_agent(&docker_content, openai_api_key, dockerfile_path_str, local_path, docker_compose_path_str)?;

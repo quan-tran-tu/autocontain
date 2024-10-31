@@ -179,11 +179,8 @@ pub fn find_and_merge_content(
             } else if depth == 0 && (file_name == "Dockerfile" || file_name.ends_with(".yml") || file_name.ends_with(".yaml")) {
                 // Collect Docker-related files only at the outermost layer (depth 0)
                 let content = fs::read_to_string(&path)?;
-                if file_name == "Dockerfile" {
-                    docker_content.insert("Dockerfile".to_string(), content.clone());
-                }
-                if content.contains("services") {
-                    docker_content.insert("docker-compose.yml".to_string(), content);
+                if file_name == "Dockerfile" || content.contains("services") {
+                    docker_content.insert(file_name, content);
                 }
             }
         }
@@ -191,7 +188,6 @@ pub fn find_and_merge_content(
 
     Ok((md_content, md_file_count, docker_content))
 }
-
 
 pub fn view_basic_analysis(scripts_path: &Path) {
     let analysis_path = scripts_path.join("analysis.md");
@@ -290,4 +286,81 @@ pub fn chat_with_assistant() {
     println!("Starting chat with assistant...");
     // TODO: Add database to store informations about the code
     // TODO: Build RAG system
+}
+
+// TODO: Remove repo source, scripts and containers
+pub fn remove_repo(repo_name: &str) {
+    println!("Removing repository '{}'", repo_name);
+
+    // Check if repo_name is in tags.txt
+    let tags_path = PathBuf::from("tags.txt");
+    let repo_in_tags = if let Ok(file) = fs::File::open(&tags_path) {
+        io::BufReader::new(file)
+            .lines()
+            .filter_map(Result::ok)
+            .any(|line| line == repo_name)
+    } else {
+        eprintln!("Failed to open tags.txt");
+        return;
+    };
+
+    let source_dir = PathBuf::from("source").join(repo_name);
+    let scripts_dir = PathBuf::from("scripts").join(repo_name);
+
+    if repo_in_tags {
+        // If repo_name is in tags.txt, try to remove the directories
+        if let Err(e) = fs::remove_dir_all(&source_dir) {
+            eprintln!("Failed to remove {} in source directory: {}", repo_name, e);
+        }
+        if let Err(e) = fs::remove_dir_all(&scripts_dir) {
+            eprintln!("Failed to remove {} in scripts directory: {}", repo_name, e);
+        }
+        println!("Repository '{}' removed successfully.", repo_name);
+
+        // Remove repo_name from tags.txt
+        if let Ok(file) = fs::File::open(&tags_path) {
+            let lines: Vec<String> = io::BufReader::new(file)
+                .lines()
+                .filter_map(Result::ok)
+                .filter(|line| line != repo_name) // Exclude the repo_name
+                .collect();
+
+            // Write the filtered lines back to tags.txt
+            if let Err(e) = fs::write(&tags_path, lines.join("\n") + "\n") {
+                eprintln!("Failed to update tags.txt: {}", e);
+            }
+        }
+    } else if source_dir.exists() {
+        // If not in tags.txt but source_dir exists, print a message
+        println!("Cannot remove repository '{}' right now.", repo_name);
+    } else {
+        // If repo_name is neither in tags.txt nor the source directory
+        println!("No repository named '{}' installed.", repo_name);
+    }
+}
+
+pub fn get_all_repos() {
+    let source_dir = PathBuf::from("source");
+
+    match fs::read_dir(&source_dir) {
+        Ok(entries) => {
+            let mut found_repo = false;
+
+            for entry in entries {
+                if let Ok(entry) = entry {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        if let Some(repo_name) = path.file_name().and_then(|name| name.to_str()) {
+                            println!("- {}", repo_name);
+                            found_repo = true;
+                        }
+                    }
+                }
+            }
+            if !found_repo {
+                println!("No repositories installed.");
+            }
+        }
+        Err(e) => eprintln!("Failed to list repositories: {}", e),
+    }
 }

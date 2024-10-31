@@ -98,7 +98,8 @@ pub fn run_script_generation_agent(
             to manage multi-container setups and service orchestration. If only a Dockerfile is available, use 'docker build' with \
             the Dockerfile path and 'docker run' with the built image. Provide the content as raw text, without any explanations, \
             introductory text, or formatting markers (such as ```Dockerfile or any other symbols).\n\n\
-            Repository path: {}\nDockerfile path: {}\nDocker Compose path: {}\n\nDockerfile:\n{}\n\nCompose File:\n{}",
+            Repository path: {}\nDockerfile path: {}\nDocker Compose path: {}\n\nDockerfile:\n{}\n\nCompose File:\n{} \
+            The repository is cloned under the 'source' folder, and the docker-related scripts are located under the 'scripts' folder, and these 2 folders are on a same hierchy.",
             dockerfile_path,
             docker_compose_path.unwrap_or(""),
             &repo_path_str,
@@ -112,7 +113,8 @@ pub fn run_script_generation_agent(
             "Given only a Dockerfile located at '{}', generate a shell script to build and run the Docker container using \
             'docker build' and 'docker run' with paths specified. Ensure the script is practical for a typical application \
             setup. Provide the content as raw text, without any explanations, introductory text, or formatting markers \
-            (such as ```Dockerfile or any other symbols).\n\nRepository path: {}\nDockerfile path: {}\n\nDockerfile:\n{}",
+            (such as ```Dockerfile or any other symbols).\n\nRepository path: {}\nDockerfile path: {}\n\nDockerfile:\n{} \
+            The repository is cloned under the 'source' folder, and the docker-related scripts are located under the 'scripts' folder, and these 2 folders are on a same hierchy.",
             dockerfile_path,
             &repo_path_str,
             dockerfile_path,

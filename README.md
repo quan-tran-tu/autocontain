@@ -15,7 +15,7 @@ cd autocontain
 ## Usage:
 ### Example: 
 ```bash
-cargo run -- https://github.com/drawdb-io/drawdb [--persist] [--depth]
+cargo run -- run https://github.com/drawdb-io/drawdb [--persist] [--depth]
 ```
 ### Params:
 - --persist: save the repo and the content generated.
