@@ -119,7 +119,7 @@ pub fn run_menu(persist: bool, local_path: &Path, scripts_path: &Path) {
             },
             "1" => view_basic_analysis(scripts_path),
             "2" => view_tree_structure(local_path),
-            "3" => install_repo(),
+            "3" => install_repo(scripts_path, local_path),
             "4" => chat_with_assistant(),
             _ => println!("Invalid choice, please try again."),
         }

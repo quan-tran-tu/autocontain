@@ -5,6 +5,8 @@ use std::fs::{self, OpenOptions};
 use std::io::{self, BufRead, Write, Read};
 use std::path::{Path, PathBuf};
 
+use crate::utils::run_script;
+
 // Function to check if the GitHub repository exists by sending an HTTP request
 pub fn check_github_repo(link: &str) -> Result<bool, reqwest::Error> {
     let res = reqwest::blocking::get(link)?;
@@ -276,10 +278,13 @@ fn display_tree_structure(path: &Path, level: usize, prefix: &str) {
     }
 }
 
-pub fn install_repo() {
+pub fn install_repo(scripts_path: &Path, local_path: &Path) {
     println!("Installing repository...");
-    // TODO: Execute script to install container
-    // TODO: Log out the output from the container
+    let script_path = scripts_path.join("run_docker.sh");
+    match run_script(&script_path, &local_path) {
+        Ok(_) => println!("Docker container installed."),
+        Err(e) => eprintln!("Error installing Docker container: {}.", e),
+    }
 }
 
 pub fn chat_with_assistant() {
@@ -288,7 +293,6 @@ pub fn chat_with_assistant() {
     // TODO: Build RAG system
 }
 
-// TODO: Remove repo source, scripts and containers
 pub fn remove_repo(repo_name: &str) {
     println!("Removing repository '{}'", repo_name);
 
