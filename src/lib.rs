@@ -1,4 +1,7 @@
-mod agents;
+pub mod agents;
+pub mod parser;
+pub mod db;
+pub mod models;
 pub mod repo;
 pub mod utils;
 

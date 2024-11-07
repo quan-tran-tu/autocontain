@@ -6,7 +6,17 @@ use autocontain::utils::print_usage_and_exit;
 use autocontain::repo::{remove_repo, get_all_repos};
 
 
+use autocontain::parser::parse_repository;
+use autocontain::db::{initialize_db, insert_repository};
+use autocontain::models::Repository;
+use rusqlite::Connection;
+
+
 fn main() {
+
+    let conn = Connection::open("autocontain.db").expect("Failed to connect to database.");
+    initialize_db(&conn).expect("Failed to initialize database.");
+
     // Load environment variables from .env file
     dotenv().ok();
 
@@ -57,6 +67,26 @@ fn main() {
         }
         "list" => {
             get_all_repos();
+        }
+        // For test parsing, # TODO: Move to process_repository
+        // # TODO: After moving, rewrite import
+        "parse" => {
+            if args.len() < 3 {
+                eprintln!("Please provide the path to the repository for parsing.");
+                print_usage_and_exit();
+            }
+            let repo_name = &args[2];
+            let repo_path = format!("source/{}", repo_name);
+            // let repo_name = "test";
+            // let repo_path = "test";
+            let repo = Repository {
+                id: None,
+                name: repo_name.to_string(),
+                description: None
+            };
+            let repo_id = insert_repository(&conn, &repo).expect("Failed to insert repository");
+            parse_repository(&repo_path, &conn, repo_id);
+            println!("Parsing completed successfully for repository at {}", repo_path);
         }
         _ => {
             eprintln!("Invalid argument '{}'", args[1]);

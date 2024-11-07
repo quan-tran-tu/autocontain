@@ -8,6 +8,9 @@
 source/
 scripts/
 tags.txt
+docker_logs.txt
+**.db
+test/
 
 # Added by cargo
 
