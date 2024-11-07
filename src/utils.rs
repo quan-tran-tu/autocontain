@@ -2,7 +2,6 @@ use std::path::Path;
 use std::io::{self, BufReader, BufRead};
 use std::process::{self, Command, Stdio};
 use std::fs;
-use std::env;
 
 pub fn print_usage_and_exit() {
     eprintln!("Usage:");
@@ -11,9 +10,7 @@ pub fn print_usage_and_exit() {
     process::exit(1);
 }
 // TODO: Fix install_repo and run_script and script generating prompt in agent
-pub fn run_script(script_path: &Path, local_path: &Path) -> io::Result<()> {
-    env::set_current_dir(local_path)?;
-    println!("{}", local_path.display());
+pub fn run_script(script_path: &Path) -> io::Result<()> {
     let file = fs::File::open(script_path)?;
     let reader = BufReader::new(file);
 

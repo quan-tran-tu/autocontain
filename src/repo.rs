@@ -70,16 +70,6 @@ pub fn apply_tag(repo_name: &str) {
     save_tags(&tags);
 }
 
-// Copies Docker-related files to the unique 'scripts/{repo_name}' folder
-pub fn copy_docker_files(docker_content: &HashMap<String, String>, scripts_path: &Path) -> io::Result<()> {
-    for (file_name, content) in docker_content {
-        let file_path = scripts_path.join(file_name);
-        fs::write(&file_path, content)?;
-        println!("Copied Docker-related file to scripts folder: {}", file_name);
-    }
-    Ok(())
-}
-
 // Loads the tags from tags.txt into a HashSet
 fn load_tags() -> HashSet<String> {
     let path = Path::new("tags.txt");
@@ -218,10 +208,18 @@ pub fn view_basic_analysis(scripts_path: &Path) {
 
 pub fn view_tree_structure(local_path: &Path) {
     println!("Displaying repository's tree structure...");
-    // Add logic to show the repo's tree structure
+    // Exclude specified directories from the tree view
     display_tree_structure(local_path, 0, "");
 }
+
 fn display_tree_structure(path: &Path, level: usize, prefix: &str) {
+    // Directories to exclude from the tree view
+    let excluded_dirs = [
+        "node_modules", ".github", ".git", "target", ".idea", ".vscode",
+        "__pycache__", "dist", "build", ".DS_Store", ".pytest_cache", "logs",
+        "coverage", ".next", "public", "static"
+    ];
+
     if let Ok(entries) = fs::read_dir(path) {
         let entries: Vec<_> = entries.filter_map(Result::ok).collect();
         let count = entries.len();
@@ -244,6 +242,11 @@ fn display_tree_structure(path: &Path, level: usize, prefix: &str) {
             let entry_path = entry.path();
             let file_name = entry.file_name().into_string().unwrap_or_default();
             let is_last = i == count - 1;
+
+            // Skip excluded directories
+            if entry_path.is_dir() && excluded_dirs.contains(&file_name.as_str()) {
+                continue;
+            }
 
             // Printing the current line with branch symbols
             println!("{}{}─ {}", prefix, if is_last { "└" } else { "├" }, file_name);
@@ -277,11 +280,10 @@ fn display_tree_structure(path: &Path, level: usize, prefix: &str) {
         println!("Failed to read the directory: {:?}", path);
     }
 }
-
-pub fn install_repo(scripts_path: &Path, local_path: &Path) {
+pub fn install_repo(scripts_path: &Path) {
     println!("Installing repository...");
     let script_path = scripts_path.join("run_docker.sh");
-    match run_script(&script_path, &local_path) {
+    match run_script(&script_path) {
         Ok(_) => println!("Docker container installed."),
         Err(e) => eprintln!("Error installing Docker container: {}.", e),
     }

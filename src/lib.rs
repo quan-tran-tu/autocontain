@@ -39,7 +39,7 @@ fn agents_caller(
             .map(|key| local_path.join(key));
         let docker_compose_path_str = docker_compose_path.as_deref().and_then(|p| p.to_str());
 
-        let run_script = run_script_generation_agent(&docker_content, openai_api_key, dockerfile_path_str, local_path, docker_compose_path_str)?;
+        let run_script = run_script_generation_agent(&docker_content, openai_api_key, dockerfile_path_str, docker_compose_path_str)?;
         fs::write(scripts_path.join("run_docker.sh"), run_script)?;
 
         Ok::<(), Box<dyn Error>>(())
@@ -52,7 +52,6 @@ fn agents_caller(
     
     true
 }
-
 
 pub fn process_repository(link: &str, openai_api_key: &str, persist: bool, depth: usize) -> Result<(String, PathBuf, PathBuf), Box<dyn Error>> {
     // Step 1: Check if the GitHub repository exists
@@ -119,7 +118,7 @@ pub fn run_menu(persist: bool, local_path: &Path, scripts_path: &Path) {
             },
             "1" => view_basic_analysis(scripts_path),
             "2" => view_tree_structure(local_path),
-            "3" => install_repo(scripts_path, local_path),
+            "3" => install_repo(scripts_path),
             "4" => chat_with_assistant(),
             _ => println!("Invalid choice, please try again."),
         }

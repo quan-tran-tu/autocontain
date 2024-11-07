@@ -1,12 +1,9 @@
-mod utils;
-mod repo;
-
 use std::env;
 use dotenv::dotenv;
 use std::process;
 use autocontain::{process_repository, run_menu};
-use utils::print_usage_and_exit;
-use repo::{remove_repo, get_all_repos};
+use autocontain::utils::print_usage_and_exit;
+use autocontain::repo::{remove_repo, get_all_repos};
 
 
 fn main() {
