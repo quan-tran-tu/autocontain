@@ -1,6 +1,7 @@
 use rusqlite::{params, Connection, Result};
 use crate::models::{Repository, Function, Class};
 
+// TODO: Add docstring to functions and class methods
 pub fn initialize_db(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS repositories (
@@ -88,3 +89,5 @@ pub fn insert_dependencies(conn: &Connection, function_name: &str, dependencies:
 
     Ok(())
 }
+
+// TODO: Write functions to query data

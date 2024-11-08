@@ -13,7 +13,7 @@ fn initialize_parser() -> Parser {
     parser
 }
 
-/// Parses a Python repository directory for classes and functions.
+// Parses a Python repository directory for classes and functions.
 pub fn parse_repository(repo_path: &str, conn: &Connection, repo_id: i32) {
     let mut parser = initialize_parser();
 
@@ -97,6 +97,7 @@ fn extract_identifier(node: Node, code: &str) -> Option<String> {
     None
 }
 
+// Extracts parameters for a function node or a class methods.
 fn extract_parameters(node: Node, code: &str) -> Option<String> {
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
@@ -129,7 +130,7 @@ fn extract_methods_and_attributes(node: Node, code: &str) -> (Option<String>, Op
                                     let parts: Vec<&str> = param.split(':').collect();
                                     let param_name = parts[0].trim();
                                     let param_type = if parts.len() > 1 {
-                                        parts[1].trim().trim_end_matches(')').trim()
+                                        parts[1].trim().trim_end_matches(')').trim() // Remove trailing ')'
                                     } else {
                                         "unknown"
                                     };
@@ -138,6 +139,7 @@ fn extract_methods_and_attributes(node: Node, code: &str) -> (Option<String>, Op
                         );
                     }
                 } else {
+                    // TODO: Separate methods in a class
                     // Extract return type for other methods
                     let return_type = extract_return_type(node, code);
                     let method_with_type = if let Some(ret_type) = return_type {
@@ -174,7 +176,7 @@ fn extract_methods_and_attributes(node: Node, code: &str) -> (Option<String>, Op
     (methods_str, attributes_str)
 }
 
-
+// Extracts all functions called in a function.
 fn extract_dependencies(node: Node, code: &str) -> Vec<String> {
     let mut dependencies = Vec::new();
 
@@ -211,3 +213,5 @@ fn extract_return_type(node: Node, code: &str) -> Option<String> {
     }
     None
 }
+
+// TODO: Add parsing docstring to functions and class methods.

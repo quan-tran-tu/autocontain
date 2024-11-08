@@ -76,6 +76,7 @@ pub fn docker_file_generation_agent(analysis: &str, openai_api_key: &str) -> Res
     Ok(response["choices"][0]["message"]["content"].as_str().unwrap_or("").to_string())
 }
 
+// TODO: Add check if the container is already installed, or container name has been used.
 // Agent 3: Run Script Generation Agent
 pub fn run_script_generation_agent(
     docker_content: &HashMap<String, String>, 

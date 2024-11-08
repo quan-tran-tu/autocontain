@@ -13,10 +13,20 @@ git clone https://github.com/quan-tran-tu/autocontain.git
 cd autocontain
 ```
 ## Usage:
-### Example: 
+### 1. Pull the repository.
 ```bash
 cargo run -- run https://github.com/drawdb-io/drawdb [--persist] [--depth]
 ```
 ### Params:
 - --persist: save the repo and the content generated.
 - --depth: specify how deep the project should search for markdown files.
+### 2. List all the repositories installed.
+```bash
+cargo run -- list
+```
+### 3. Remove repository.
+```bash
+cargo run -- rm <repo_name>
+```
+## Contribute:
+Search for TODOs in the project for tasks. 

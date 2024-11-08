@@ -291,8 +291,7 @@ pub fn install_repo(scripts_path: &Path) {
 
 pub fn chat_with_assistant() {
     println!("Starting chat with assistant...");
-    // TODO: Add database to store informations about the code
-    // TODO: Build RAG system
+    // TODO: Write a prompt format to pass to OpenAI API
 }
 
 pub fn remove_repo(repo_name: &str) {

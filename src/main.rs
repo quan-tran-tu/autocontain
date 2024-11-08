@@ -11,6 +11,7 @@ use autocontain::db::{initialize_db, insert_repository};
 use autocontain::models::Repository;
 use rusqlite::Connection;
 
+// TODO: Comment everything for better transparency
 
 fn main() {
 
@@ -68,8 +69,9 @@ fn main() {
         "list" => {
             get_all_repos();
         }
-        // For test parsing, # TODO: Move to process_repository
-        // # TODO: After moving, rewrite import
+        // For test parsing
+        // TODO: Move to process_repository
+        // TODO: After moving, rewrite import
         "parse" => {
             if args.len() < 3 {
                 eprintln!("Please provide the path to the repository for parsing.");
@@ -77,6 +79,7 @@ fn main() {
             }
             let repo_name = &args[2];
             let repo_path = format!("source/{}", repo_name);
+            // For testing parsing
             // let repo_name = "test";
             // let repo_path = "test";
             let repo = Repository {
