@@ -11,6 +11,7 @@ pub struct Function {
     pub repo_id: i32,
     pub name: String,
     pub parameters: Option<String>,
+    pub return_type: Option<String>,
     pub file_location: String,
     pub start_line: i32,
     pub end_line: i32,
