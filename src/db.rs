@@ -2,6 +2,7 @@ use rusqlite::{params, Connection, Result};
 use crate::models::{Repository, Function, Class};
 
 // TODO: Add docstring to functions and class methods
+// Initialize the database to store information about classes, functions and their dependencies
 pub fn initialize_db(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS repositories (
@@ -52,6 +53,8 @@ pub fn initialize_db(conn: &Connection) -> Result<()> {
 
     Ok(())
 }
+
+//---------------- List of functions to interact with the sqlite database -----------------
 
 pub fn insert_repository(conn: &Connection, repo: &Repository) -> Result<i32> {
     conn.execute(

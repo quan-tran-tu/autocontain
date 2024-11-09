@@ -1,8 +1,9 @@
-use reqwest::blocking::Client;
-use serde_json::json;
 use std::error::Error;
 use std::io;
 use std::collections::HashMap;
+
+use reqwest::blocking::Client;
+use serde_json::json;
 
 const OPENAI_MODEL_NAME: &str = "gpt-4o-mini";
 
@@ -81,8 +82,8 @@ pub fn docker_file_generation_agent(analysis: &str, openai_api_key: &str) -> Res
 pub fn run_script_generation_agent(
     docker_content: &HashMap<String, String>, 
     openai_api_key: &str,
-    dockerfile_path: &str,          // Path to the Dockerfile
-    docker_compose_path: Option<&str> // Optional path to the Docker Compose file
+    dockerfile_path: &str,     
+    docker_compose_path: Option<&str> 
 ) -> Result<String, Box<dyn Error>> {
     let client = Client::new();
     

@@ -1,13 +1,18 @@
-use reqwest::StatusCode;
-use git2::Repository;
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, OpenOptions};
 use std::io::{self, BufRead, Write, Read};
 use std::path::{Path, PathBuf};
 
-use crate::utils::run_script;
+use reqwest::StatusCode;
+use git2::Repository;
+use rusqlite::Connection;
 
-// Function to check if the GitHub repository exists by sending an HTTP request
+use crate::utils::run_script;
+use crate::parser::parse_repository;
+use crate::db::insert_repository;
+use crate::models;
+
+// Check if the GitHub repository exists by sending an HTTP request
 pub fn check_github_repo(link: &str) -> Result<bool, reqwest::Error> {
     let res = reqwest::blocking::get(link)?;
     Ok(res.status() != StatusCode::NOT_FOUND)
@@ -20,13 +25,12 @@ pub fn clone_repo(link: &str, persist: bool) -> Result<(String, PathBuf), git2::
         fs::create_dir(base_path).expect("Failed to create 'source' folder");
     }
 
+    // Extract repository's name from the provided link
     let repo_name = link.trim_end_matches('/').split('/').last().unwrap().to_string();
     let local_path = base_path.join(&repo_name);
 
     // Load tags once and pass it to add_tag/remove_tag functions
     let mut tags = load_tags();
-
-    println!("Current tags: {:?}", tags);
 
     // Clone if the repository does not exist locally
     if !local_path.exists() {
@@ -48,11 +52,11 @@ pub fn clone_repo(link: &str, persist: bool) -> Result<(String, PathBuf), git2::
 
     // Save tags to the file after modifications
     save_tags(&tags);
-    println!("Updated tags: {:?}", tags);
 
     // Return `repo_name` and `local_path` along with `Ok`
     Ok((repo_name, local_path))
 }
+
 // Adds a repository name to the tags HashSet
 fn add_tag(repo_name: &str, tags: &mut HashSet<String>) {
     tags.insert(repo_name.to_string());
@@ -97,7 +101,7 @@ fn save_tags(tags: &HashSet<String>) {
     }
 }
 
-// Cleans up the unique 'scripts/{repo_name}' directory if it's not tagged
+// Cleans up 'scripts/{repo_name}' and 'source/{repo_name} directory if repo_name is not tagged
 pub fn cleanup_repos() {
     let tags = load_tags();
     
@@ -141,8 +145,8 @@ pub fn cleanup_repos() {
 // - Docker-related files are stored in a HashMap.
 // - Only 1 Dockerfile and compose file, each, is considered.
 pub fn find_and_merge_content(
-    dir: &Path,
-    depth: usize,
+    dir: &Path, // Path to the repository
+    depth: usize, // How deep the program should search for markdown files.
 ) -> Result<(String, usize, HashMap<String, String>), io::Error> {
     let mut md_content = String::new();
     let mut md_file_count = 0;
@@ -181,6 +185,7 @@ pub fn find_and_merge_content(
     Ok((md_content, md_file_count, docker_content))
 }
 
+// View analysis.md in cli
 pub fn view_basic_analysis(scripts_path: &Path) {
     let analysis_path = scripts_path.join("analysis.md");
     println!("Viewing repository's basic analysis...");
@@ -206,9 +211,9 @@ pub fn view_basic_analysis(scripts_path: &Path) {
     }
 }
 
+// View repository tree structure in cli
 pub fn view_tree_structure(local_path: &Path) {
     println!("Displaying repository's tree structure...");
-    // Exclude specified directories from the tree view
     display_tree_structure(local_path, 0, "");
 }
 
@@ -217,83 +222,83 @@ fn display_tree_structure(path: &Path, level: usize, prefix: &str) {
     let excluded_dirs = [
         "node_modules", ".github", ".git", "target", ".idea", ".vscode",
         "__pycache__", "dist", "build", ".DS_Store", ".pytest_cache", "logs",
-        "coverage", ".next", "public", "static"
+        "coverage", ".next", "public", "static",
     ];
 
     if let Ok(entries) = fs::read_dir(path) {
         let entries: Vec<_> = entries.filter_map(Result::ok).collect();
-        let count = entries.len();
-        
-        // Group entries by file extension if they are files
-        let mut extension_groups: HashMap<String, Vec<PathBuf>> = HashMap::new();
+
+        // Separate files and directories in the current directory level
+        let mut files_by_extension: HashMap<String, Vec<PathBuf>> = HashMap::new();
+        let mut directories = Vec::new();
 
         for entry in &entries {
             let entry_path = entry.path();
-            if entry_path.is_file() {
-                let ext = entry_path.extension()
+            let file_name = entry.file_name().into_string().unwrap_or_default();
+
+            if entry_path.is_dir() {
+                if !excluded_dirs.contains(&file_name.as_str()) {
+                    directories.push(entry_path);
+                }
+            } else if entry_path.is_file() {
+                let ext = entry_path
+                    .extension()
                     .and_then(|s| s.to_str())
                     .unwrap_or("")
                     .to_string();
-                extension_groups.entry(ext).or_default().push(entry_path.clone());
+                files_by_extension.entry(ext).or_default().push(entry_path);
             }
         }
 
-        for (i, entry) in entries.into_iter().enumerate() {
-            let entry_path = entry.path();
-            let file_name = entry.file_name().into_string().unwrap_or_default();
-            let is_last = i == count - 1;
-
-            // Skip excluded directories
-            if entry_path.is_dir() && excluded_dirs.contains(&file_name.as_str()) {
-                continue;
+        // Print files, limited to 4 per extension
+        for (_, files) in files_by_extension.iter() {
+            let file_count = files.len();
+            for (i, file) in files.iter().take(4).enumerate() {
+                let file_name = file.file_name().unwrap().to_string_lossy();
+                println!(
+                    "{}{}─ {}",
+                    prefix,
+                    if i == 3 || i == file_count - 1 { "└" } else { "├" },
+                    file_name
+                );
             }
+            if file_count > 4 {
+                println!("{}└─ ...", prefix); // Indicating remaining files
+            }
+        }
 
-            // Printing the current line with branch symbols
-            println!("{}{}─ {}", prefix, if is_last { "└" } else { "├" }, file_name);
+        // Print directories and recursively apply the tree structure to each
+        for (i, dir) in directories.iter().enumerate() {
+            let dir_name = dir.file_name().unwrap().to_string_lossy();
+            let is_last = i == directories.len() - 1;
 
-            // Prepare the new prefix for the next level
+            println!("{}{}─ {}", prefix, if is_last { "└" } else { "├" }, dir_name);
+
             let new_prefix = format!("{}{}", prefix, if is_last { "  " } else { "│ " });
-
-            // Recursively display tree structure for directories
-            if entry_path.is_dir() {
-                display_tree_structure(&entry_path, level + 1, &new_prefix);
-            } else {
-                let ext = entry_path.extension()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("")
-                    .to_string();
-
-                // Display the first 4 files and replace others with "..." if more than 4
-                if let Some(files) = extension_groups.get(&ext) {
-                    if files.len() > 4 {
-                        for (j, file) in files.iter().take(4).enumerate() {
-                            let file_name = file.file_name().unwrap().to_string_lossy();
-                            println!("{}{}─ {}", new_prefix, if j == 3 { "└" } else { "├" }, file_name);
-                        }
-                        println!("{}└─ ...", new_prefix); // Indicating remaining files
-                        break;
-                    }
-                }
-            }
+            display_tree_structure(dir, level + 1, &new_prefix);
         }
     } else {
         println!("Failed to read the directory: {:?}", path);
     }
 }
+
+// Execute run.sh
 pub fn install_repo(scripts_path: &Path) {
     println!("Installing repository...");
-    let script_path = scripts_path.join("run_docker.sh");
+    let script_path = scripts_path.join("run.sh");
     match run_script(&script_path) {
         Ok(_) => println!("Docker container installed."),
         Err(e) => eprintln!("Error installing Docker container: {}.", e),
     }
 }
 
+// Chat with AI about the repository
 pub fn chat_with_assistant() {
     println!("Starting chat with assistant...");
     // TODO: Write a prompt format to pass to OpenAI API
 }
 
+// Remove the repository from the machine
 pub fn remove_repo(repo_name: &str) {
     println!("Removing repository '{}'", repo_name);
 
@@ -344,6 +349,7 @@ pub fn remove_repo(repo_name: &str) {
     }
 }
 
+// Get all repositories installed permanantly
 pub fn get_all_repos() {
     let source_dir = PathBuf::from("source");
 
@@ -368,4 +374,19 @@ pub fn get_all_repos() {
         }
         Err(e) => eprintln!("Failed to list repositories: {}", e),
     }
+}
+
+// Use tree-sitter to parse the code of the repository to the sqlite database
+pub fn parse_repo(repo_name: &str, repo_path: &str, conn: Connection) {
+    // Create a Repository
+    let repo = models::Repository {
+        id: None,
+        name: repo_name.to_string(),
+        description: None
+    };
+    // Insert the repository into the database and get the repo_id assigned
+    let repo_id = insert_repository(&conn, &repo).expect("Failed to insert repository.");
+    // Start parsing the repository
+    parse_repository(&repo_path, &conn, repo_id);
+    println!("Parsing completed successfully for repository {}.", repo_name);
 }
