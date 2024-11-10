@@ -1,7 +1,6 @@
 use rusqlite::{params, Connection, Result};
 use crate::models::{Repository, Function, Class};
 
-// TODO: Add docstring to functions and class methods
 // Initialize the database to store information about classes, functions and their dependencies
 pub fn initialize_db(conn: &Connection) -> Result<()> {
     conn.execute(
@@ -12,37 +11,37 @@ pub fn initialize_db(conn: &Connection) -> Result<()> {
         )",
         [],
     )?;
-
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS classes (
+            id INTEGER PRIMARY KEY,
+            repo_id INTEGER,
+            name TEXT NOT NULL,
+            attributes TEXT,
+            file_location TEXT,
+            start_line INTEGER,
+            end_line INTEGER,
+            docstring TEXT,     
+            FOREIGN KEY(repo_id) REFERENCES repositories(id)
+        )",
+        [],
+    )?;
     conn.execute(
         "CREATE TABLE IF NOT EXISTS functions (
             id INTEGER PRIMARY KEY,
             repo_id INTEGER,
+            class_id INTEGER,      
             name TEXT NOT NULL,
             parameters TEXT,            
             return_type TEXT,           
             file_location TEXT,
             start_line INTEGER,
             end_line INTEGER,
-            FOREIGN KEY(repo_id) REFERENCES repositories(id)
+            docstring TEXT,    
+            FOREIGN KEY(repo_id) REFERENCES repositories(id),
+            FOREIGN KEY(class_id) REFERENCES classes(id)
         )",
         [],
     )?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS classes (
-            id INTEGER PRIMARY KEY,
-            repo_id INTEGER,
-            name TEXT NOT NULL,
-            attributes TEXT,            
-            methods TEXT,
-            file_location TEXT,
-            start_line INTEGER,
-            end_line INTEGER,
-            FOREIGN KEY(repo_id) REFERENCES repositories(id)
-        )",
-        [],
-    )?;
-
     conn.execute(
         "CREATE TABLE IF NOT EXISTS function_dependencies (
             function_name TEXT NOT NULL,
@@ -53,6 +52,7 @@ pub fn initialize_db(conn: &Connection) -> Result<()> {
 
     Ok(())
 }
+
 
 //---------------- List of functions to interact with the sqlite database -----------------
 
@@ -67,18 +67,36 @@ pub fn insert_repository(conn: &Connection, repo: &Repository) -> Result<i32> {
 
 pub fn insert_function(conn: &Connection, func: &Function) -> Result<()> {
     conn.execute(
-        "INSERT INTO functions (repo_id, name, parameters, return_type, file_location, start_line, end_line)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-        params![func.repo_id, func.name, func.parameters, func.return_type, func.file_location, func.start_line, func.end_line],
+        "INSERT INTO functions (repo_id, class_id, name, parameters, return_type, file_location, start_line, end_line, docstring)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![
+            func.repo_id,
+            func.class_id,
+            func.name,
+            func.parameters,
+            func.return_type,
+            func.file_location,
+            func.start_line,
+            func.end_line,
+            func.docstring
+        ],
     )?;
     Ok(())
 }
 
 pub fn insert_class(conn: &Connection, class: &Class) -> Result<()> {
     conn.execute(
-        "INSERT INTO classes (repo_id, name, attributes, methods, file_location, start_line, end_line)
+        "INSERT INTO classes (repo_id, name, attributes, file_location, start_line, end_line, docstring)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-        params![class.repo_id, class.name, class.attributes, class.methods, class.file_location, class.start_line, class.end_line],
+        params![
+            class.repo_id,
+            class.name,
+            class.attributes,
+            class.file_location,
+            class.start_line,
+            class.end_line,
+            class.docstring
+        ],
     )?;
     Ok(())
 }
