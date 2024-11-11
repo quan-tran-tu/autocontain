@@ -1,19 +1,11 @@
 use std::process;
 use std::env;
 
-use dotenv::dotenv;
-
 use autocontain::{process_repository, run_menu};
 use autocontain::utils::print_usage_and_exit;
 use autocontain::repo::{remove_repo, get_all_repos};
 
 fn main() {
-    // Load environment variables from .env file
-    dotenv().ok();
-
-    // Retrieve OpenAI API key from environment variables
-    let openai_api_key = env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY not found in .env.");
-
     // Parse command-line arguments
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
@@ -56,10 +48,10 @@ fn main() {
             }
 
             // Main function to pre-process the repository
-            let (_, local_path, scripts_path) = process_repository(link, &openai_api_key, persist, depth)
+            let (_, local_path, scripts_path, conn) = process_repository(link, persist, depth)
                 .expect("Failed to process repository.");
             // Run the cli menu
-            run_menu(persist, &local_path, &scripts_path);
+            run_menu(persist, &local_path, &scripts_path, &conn);
         }
         "list" => { // List all repositories installed
             get_all_repos();

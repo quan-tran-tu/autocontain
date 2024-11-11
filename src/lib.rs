@@ -1,7 +1,10 @@
-pub mod agents;
-pub mod parser;
-pub mod db;
-pub mod models;
+mod agents;
+mod parser;
+mod db;
+mod models;
+mod chat;
+mod config;
+
 pub mod repo;
 pub mod utils;
 
@@ -14,14 +17,14 @@ use std::io::{self, Write};
 use rusqlite::Connection;
 
 use agents::{documentation_analysis_agent, docker_file_generation_agent, run_script_generation_agent};
-use repo::{check_github_repo, clone_repo, cleanup_repos, find_and_merge_content, apply_tag, view_basic_analysis, view_tree_structure, install_repo, chat_with_assistant, parse_repo};
+use repo::{check_github_repo, clone_repo, cleanup_repos, find_and_merge_content, apply_tag, view_basic_analysis, view_tree_structure, install_repo, parse_repo};
 use db::initialize_db;
+use chat::chat_with_assistant;
 
 fn agents_caller(
     local_path: PathBuf, // Repository's path on machine
     md_content: String, // Markdown content
     docker_content: &mut HashMap<String, String>, // Docker-related content
-    openai_api_key: &str,
     scripts_path: PathBuf, // Path to store repo analysis result and installation script returned from OpenAI API
 ) -> bool {
     // Merge all docker contents into 1 string
@@ -30,7 +33,7 @@ fn agents_caller(
     let combined_content = format!("Markdown content:\n{}\n\nDocker content:\n{}", md_content, docker_combined);
 
     // Call the analysis agent to give a basic view about the repository
-    let result = documentation_analysis_agent(&combined_content, openai_api_key).and_then(|analysis| {
+    let result = documentation_analysis_agent(&combined_content).and_then(|analysis| {
         // When received result from the agent
         // Write to analysis.md
         fs::write(scripts_path.join("analysis.md"), &analysis)?;
@@ -38,7 +41,7 @@ fn agents_caller(
         // Call another agent to generate a Dockerfile if no docker-related contents is found
         if docker_content.is_empty() {
             println!("No Docker-related files found. Generating Dockerfile.");
-            let generated_dockerfile = docker_file_generation_agent(&analysis, openai_api_key)?;
+            let generated_dockerfile = docker_file_generation_agent(&analysis)?;
             fs::write(local_path.join("Dockerfile"), &generated_dockerfile)?;
             docker_content.insert("Dockerfile".to_string(), generated_dockerfile);
         }
@@ -51,7 +54,7 @@ fn agents_caller(
             .map(|key| local_path.join(key));
         let docker_compose_path_str = docker_compose_path.as_deref().and_then(|p| p.to_str());
         // Call another agent to generate the run script to install the container from docker-related file
-        let run_script = run_script_generation_agent(&docker_content, openai_api_key, dockerfile_path_str, docker_compose_path_str)?;
+        let run_script = run_script_generation_agent(&docker_content, dockerfile_path_str, docker_compose_path_str)?;
         fs::write(scripts_path.join("run.sh"), run_script)?;
 
         Ok::<(), Box<dyn Error>>(())
@@ -65,7 +68,7 @@ fn agents_caller(
     true
 }
 
-pub fn process_repository(link: &str, openai_api_key: &str, persist: bool, depth: usize) -> Result<(String, PathBuf, PathBuf), Box<dyn Error>> {
+pub fn process_repository(link: &str, persist: bool, depth: usize) -> Result<(String, PathBuf, PathBuf, Connection), Box<dyn Error>> {
     // Check if the GitHub repository exists
     if !check_github_repo(link)? {
         eprintln!("Repository link is invalid or inaccessible.");
@@ -80,7 +83,7 @@ pub fn process_repository(link: &str, openai_api_key: &str, persist: bool, depth
     initialize_db(&conn).expect("Failed to initialize database.");
 
     // Parsing the repo to the database
-    parse_repo(&repo_name, &local_path.to_string_lossy().to_string(), conn);
+    parse_repo(&repo_name, &local_path.to_string_lossy().to_string(), &conn);
 
     // Generating scripts part
     let scripts_path = Path::new("scripts").join(repo_name.clone());
@@ -90,7 +93,7 @@ pub fn process_repository(link: &str, openai_api_key: &str, persist: bool, depth
         let (md_content, _, mut docker_content) = find_and_merge_content(&local_path, depth)?;
         
         // Call the agents
-        if agents_caller(local_path.clone(), md_content, &mut docker_content, &openai_api_key, scripts_path.clone()) {
+        if agents_caller(local_path.clone(), md_content, &mut docker_content, scripts_path.clone()) {
             println!("Repository processed successfully, files saved in '{}'.", scripts_path.display());
         } else {
             println!("Repository processed, failed to call OpenAI.");
@@ -104,10 +107,10 @@ pub fn process_repository(link: &str, openai_api_key: &str, persist: bool, depth
         apply_tag(&repo_name);
     }
 
-    Ok((repo_name, local_path, scripts_path))
+    Ok((repo_name, local_path, scripts_path, conn))
 }
 
-pub fn run_menu(persist: bool, local_path: &Path, scripts_path: &Path) {
+pub fn run_menu(persist: bool, local_path: &Path, scripts_path: &Path, conn: &Connection) {
     loop {
         // Display the menu
         println!("Choose an option:");
@@ -141,7 +144,7 @@ pub fn run_menu(persist: bool, local_path: &Path, scripts_path: &Path) {
             "1" => view_basic_analysis(scripts_path),
             "2" => view_tree_structure(local_path),
             "3" => install_repo(scripts_path),
-            "4" => chat_with_assistant(),
+            "4" => chat_with_assistant(conn),
             _ => println!("Invalid choice, please try again."),
         }
 

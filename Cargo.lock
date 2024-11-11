@@ -58,6 +58,7 @@ dependencies = [
  "ctrlc",
  "dotenv",
  "git2",
+ "once_cell",
  "reqwest",
  "rusqlite",
  "serde_json",

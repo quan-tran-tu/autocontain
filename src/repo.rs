@@ -292,12 +292,6 @@ pub fn install_repo(scripts_path: &Path) {
     }
 }
 
-// Chat with AI about the repository
-pub fn chat_with_assistant() {
-    println!("Starting chat with assistant...");
-    // TODO: Write a prompt format to pass to OpenAI API
-}
-
 // Remove the repository from the machine
 pub fn remove_repo(repo_name: &str) {
     println!("Removing repository '{}'", repo_name);
@@ -377,7 +371,7 @@ pub fn get_all_repos() {
 }
 
 // Use tree-sitter to parse the code of the repository to the sqlite database
-pub fn parse_repo(repo_name: &str, repo_path: &str, conn: Connection) {
+pub fn parse_repo(repo_name: &str, repo_path: &str, conn: &Connection) {
     // Create a Repository
     let repo = models::Repository {
         id: None,

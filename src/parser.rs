@@ -68,7 +68,7 @@ fn process_function_definition(node: Node, code: &str, conn: &Connection, repo_i
     // Insert function dependencies into the database
     let func_name = func.name.clone();
     let dependencies = extract_dependencies(node, code);
-    insert_dependencies(conn, &func_name, &dependencies).expect("Failed to insert dependencies");
+    insert_dependencies(conn, &func_name, class_id, &dependencies).expect("Failed to insert dependencies");
 }
 
 // Helper function to process methods within a class node
@@ -113,13 +113,13 @@ fn create_function_struct(node: Node, code: &str, repo_id: i32, class_id: Option
     let func_name = extract_identifier(node, code);
     let parameters = extract_parameters(node, code);
     let return_type = extract_return_type(node, code);
-    let docstring = extract_docstring(node, code); // Extract docstring for the function
+    let docstring = extract_docstring(node, code); 
     let (start_line, end_line) = (node.start_position().row as i32, node.end_position().row as i32);
 
     Function {
         id: None,
         repo_id,
-        class_id,  // Set class_id if it is a method
+        class_id, 
         name: func_name.unwrap_or("<unknown>".to_string()),
         parameters,
         return_type,
@@ -143,24 +143,38 @@ fn extract_identifier(node: Node, code: &str) -> Option<String> {
 
 // Extracts docstring for a class or function node.
 fn extract_docstring(node: Node, code: &str) -> Option<String> {
-    // Recursively search for the first `string` node within the node's body
-    fn find_docstring(node: Node, code: &str) -> Option<String> {
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            // Check if this child is the `string` node we're looking for
-            if child.kind() == "string" {
-                return Some(child.utf8_text(code.as_bytes()).unwrap().trim_matches('"').to_string());
-            }
-            // If the child is a `body` node or another container, continue searching within it
-            let docstring = find_docstring(child, code);
-            if docstring.is_some() {
-                return docstring;
+    // Searches for a `string` node inside an `expression_statement` within the `block`.
+    fn find_docstring_in_block(block_node: Node, code: &str) -> Option<String> {
+        let mut cursor = block_node.walk();
+        if let Some(first_child) = block_node.children(&mut cursor).next() {
+            // Check if the first child is an `expression_statement`
+            if first_child.kind() == "expression_statement" {
+                let mut inner_cursor = first_child.walk();
+                // Use a loop to search for the `string` node
+                for child in first_child.children(&mut inner_cursor) {
+                    if child.kind() == "string" {
+                        return Some(
+                            child
+                                .utf8_text(code.as_bytes())
+                                .unwrap()
+                                .trim_matches('"')
+                                .to_string(),
+                        );
+                    }
+                }
             }
         }
         None
     }
 
-    find_docstring(node, code)
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        // Look for a `block` node within the class or function.
+        if child.kind() == "block" {
+            return find_docstring_in_block(child, code);
+        }
+    }
+    None
 }
 
 // Extracts parameters for a function node or a class methods.

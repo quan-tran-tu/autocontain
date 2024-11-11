@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 #[derive(Debug)]
 pub struct Repository {
     pub id: Option<i32>, 
